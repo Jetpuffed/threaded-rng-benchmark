@@ -53,4 +53,28 @@ fn create_new_mutex<T>(data: T) -> Arc<Mutex<T>>
     return Arc::new(Mutex::new(data))
 }
 
-fn main() {}
+fn main()
+{
+    let maximum_threads: u32 = get_logical_cores();
+    let vec_length: usize = u32::MAX as usize;
+    let rand_vec = create_new_mutex::<Vec<u64>>(Vec::with_capacity(vec_length));
+    let mut handles = Vec::new();
+
+    for _ in 0 .. maximum_threads
+    {
+        let rand_vec = Arc::clone(&rand_vec);
+        let handle = thread::spawn(move || {
+            for _ in 0 .. (vec_length / maximum_threads as usize)
+            {
+                let mut target = rand_vec.lock().unwrap();
+                target.push(rand_u64());
+            }
+        });
+        handles.push(handle);
+    }
+
+    for handle in handles
+    {
+        handle.join().unwrap();
+    }
+}
