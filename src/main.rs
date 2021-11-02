@@ -9,7 +9,7 @@ use core::arch::x86_64::
 use std::
 {
     sync::{Arc, Mutex},
-    thread
+    thread,
 };
 
 fn rand_u16() -> u16
@@ -46,6 +46,11 @@ fn get_logical_cores() -> u32
     // Isolate bits 16 ..= 23 with bitwise AND then right shift
     // by 16 to get the maximum number of addressable logical cores.
     return (cpuid & 0xFF0000) >> 16
+}
+
+fn create_new_mutex<T>(data: T) -> Arc<Mutex<T>>
+{
+    return Arc::new(Mutex::new(data))
 }
 
 fn main() {}
