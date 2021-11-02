@@ -7,7 +7,7 @@ use core::arch::x86_64::{
 fn rand_u16() -> u16
 {
     let mut n = 0;
-    unsafe { _rdrand16_step(n) };
+    unsafe { _rdrand16_step(&mut n) };
 
     return n
 }
@@ -15,7 +15,7 @@ fn rand_u16() -> u16
 fn rand_u32() -> u32
 {
     let mut n = 0;
-    unsafe { _rdrand32_step(n) };
+    unsafe { _rdrand32_step(&mut n) };
 
     return n
 }
@@ -23,7 +23,7 @@ fn rand_u32() -> u32
 fn rand_u64() -> u64
 {
     let mut n = 0;
-    unsafe { _rdrand64_step(n) };
+    unsafe { _rdrand64_step(&mut n) };
 
     return n
 }
