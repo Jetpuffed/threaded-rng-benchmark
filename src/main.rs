@@ -12,4 +12,12 @@ fn rand_u16() -> u16
     return n
 }
 
+fn rand_u32() -> u32
+{
+    let mut n = 0;
+    unsafe { _rdrand32_step(n) };
+
+    return n
+}
+
 fn main() {}
