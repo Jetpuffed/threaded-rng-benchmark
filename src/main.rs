@@ -11,6 +11,7 @@ use std::
     marker::Send,
     sync::{Arc, Mutex},
     thread,
+    time::Instant,
 };
 
 trait Random
@@ -60,6 +61,7 @@ fn get_logical_cores() -> u32
     return (cpuid & 0xFF0000) >> 16
 }
 
+/// Creates Arc<Mutex<`data`>> from a function to increase readability.
 fn create_new_mutex<T>(data: T) -> Arc<Mutex<T>>
 {
     return Arc::new(Mutex::new(data))
@@ -89,10 +91,12 @@ fn eval_threading<T: 'static + Random + Send>(size: usize)
             handles.push(handle);
         }
 
+        let now = Instant::now();
         for handle in handles
         {
             handle.join().unwrap();
         }
+        println!("{} threaded operation took {} second(s) to complete.", threads, now.elapsed().as_secs());
     }
 }
 
