@@ -76,15 +76,23 @@ fn eval_threading<T: 'static + Random + Send>(size: usize)
     {
         let vec_t = create_new_mutex::<Vec<T>>(Vec::with_capacity(size));
         let mut handles = Vec::new();
+        let chunk_size: usize = size / threads as usize;
 
         for _ in 0 .. threads
         {
             let vec_t = Arc::clone(&vec_t);
             let handle = thread::spawn(move || {
-                for _ in 0 .. (size / threads as usize)
+                let mut dst = vec_t.lock().unwrap();
+                let mut tmp: Vec<T> = Vec::with_capacity(chunk_size);
+
+                for _ in 0 .. chunk_size
                 {
-                    let mut target = vec_t.lock().unwrap();
-                    target.push(T::random());
+                    tmp.push(T::random());
+                }
+
+                for _ in 0 .. chunk_size
+                {
+                    dst.push(tmp.pop().unwrap())
                 }
             });
 
@@ -100,4 +108,7 @@ fn eval_threading<T: 'static + Random + Send>(size: usize)
     }
 }
 
-fn main() {}
+fn main()
+{
+    eval_threading::<u64>(1 << 16)
+}
