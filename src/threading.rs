@@ -24,29 +24,30 @@ pub fn threaded_mpsc(threads: usize, total_size: usize) -> Vec<u64>
 {
     let (tx, rx) = mpsc::channel();
     let job_size = total_size / threads;
-    let mut rd_vec: Vec<u64> = Vec::with_capacity(total_size);
     let mut workers = Vec::with_capacity(threads);
-
-    for _ in 1 ..= threads
+    
+    for _ in 0 .. threads
     {
         let _tx = tx.clone();
         let worker = thread::spawn(
             move ||
             {
-                for _ in 0 .. job_size
+                for i in 0 .. job_size
                 {
                     _tx.send(hw_rand_u64()).unwrap();
                 }
             }
         );
-
+        
         workers.push(worker);
     }
-
+    
     for worker in workers
     {
         worker.join().unwrap();
     }
+    
+    let mut rd_vec = Vec::with_capacity(total_size);
 
     while let Ok(recv) = rx.try_recv()
     {
