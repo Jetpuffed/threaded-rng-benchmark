@@ -8,32 +8,44 @@ use core::arch::x86_64::
 
 use std::
 {
+    marker::Send,
     sync::{Arc, Mutex},
     thread,
 };
 
-fn rand_u16() -> u16
+trait Random
 {
-    let mut n = 0;
-    unsafe { _rdrand16_step(&mut n) };
-
-    return n
+    fn random() -> Self;
 }
 
-fn rand_u32() -> u32
+impl Random for u16
 {
-    let mut n = 0;
-    unsafe { _rdrand32_step(&mut n) };
-
-    return n
+    fn random() -> u16
+    {
+        let mut n = 0;
+        unsafe { _rdrand16_step(&mut n) };
+        return n
+    }
 }
 
-fn rand_u64() -> u64
+impl Random for u32
 {
-    let mut n = 0;
-    unsafe { _rdrand64_step(&mut n) };
+    fn random() -> u32
+    {
+        let mut n = 0;
+        unsafe { _rdrand32_step(&mut n) };
+        return n
+    }
+}
 
-    return n
+impl Random for u64
+{
+    fn random() -> u64
+    {
+        let mut n = 0;
+        unsafe { _rdrand64_step(&mut n) };
+        return n
+    }
 }
 
 /// Uses the x86-64 instruction `CPUID` to obtain the amount
@@ -53,28 +65,35 @@ fn create_new_mutex<T>(data: T) -> Arc<Mutex<T>>
     return Arc::new(Mutex::new(data))
 }
 
-fn main()
+/// Evaluates the time it takes to generate a vector of length `size`
+/// with random `T` type values. The amount of tests directly
+/// corresponds to the amount of logical cores in your machine.
+fn eval_threading<T: 'static + Random + Send>(size: usize)
 {
-    let maximum_threads: u32 = get_logical_cores();
-    let vec_length: usize = u32::MAX as usize;
-    let rand_vec = create_new_mutex::<Vec<u64>>(Vec::with_capacity(vec_length));
-    let mut handles = Vec::new();
-
-    for _ in 0 .. maximum_threads
+    for threads in 0 .. get_logical_cores()
     {
-        let rand_vec = Arc::clone(&rand_vec);
-        let handle = thread::spawn(move || {
-            for _ in 0 .. (vec_length / maximum_threads as usize)
-            {
-                let mut target = rand_vec.lock().unwrap();
-                target.push(rand_u64());
-            }
-        });
-        handles.push(handle);
-    }
+        let vec_t = create_new_mutex::<Vec<T>>(Vec::with_capacity(size));
+        let mut handles = Vec::new();
 
-    for handle in handles
-    {
-        handle.join().unwrap();
+        for _ in 0 .. threads
+        {
+            let vec_t = Arc::clone(&vec_t);
+            let handle = thread::spawn(move || {
+                for _ in 0 .. (size / threads as usize)
+                {
+                    let mut target = vec_t.lock().unwrap();
+                    target.push(T::random());
+                }
+            });
+
+            handles.push(handle);
+        }
+
+        for handle in handles
+        {
+            handle.join().unwrap();
+        }
     }
 }
+
+fn main() {}
