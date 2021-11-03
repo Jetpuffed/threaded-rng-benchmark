@@ -72,7 +72,7 @@ fn create_new_mutex<T>(data: T) -> Arc<Mutex<T>>
 /// corresponds to the amount of logical cores in your machine.
 fn eval_threading<T: 'static + Random + Send>(size: usize)
 {
-    for threads in 0 .. get_logical_cores()
+    for threads in 1 ..= get_logical_cores()
     {
         let vec_t = create_new_mutex::<Vec<T>>(Vec::with_capacity(size));
         let mut handles = Vec::new();
@@ -96,7 +96,7 @@ fn eval_threading<T: 'static + Random + Send>(size: usize)
         {
             handle.join().unwrap();
         }
-        println!("{} threaded operation took {} second(s) to complete.", threads, now.elapsed().as_secs());
+        println!("{} threaded operation took {:#.4} second(s) to complete.", threads, now.elapsed().as_secs_f64());
     }
 }
 
