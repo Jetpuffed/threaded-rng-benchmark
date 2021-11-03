@@ -14,9 +14,19 @@ use std::
     time::Instant,
 };
 
+const SEED: u64 = 42;
+
+#[derive(Clone, Copy)]
+struct PCG
+{
+    state: u64,
+    inc: u64,
+}
+
 trait Random
 {
     fn random() -> Self;
+    fn pcg(rng: PCG) -> Self;
 }
 
 impl Random for u16
@@ -26,6 +36,15 @@ impl Random for u16
         let mut n = 0;
         unsafe { _rdrand16_step(&mut n) };
         return n
+    }
+
+    fn pcg(mut rng: PCG) -> u16
+    {
+        let old_state = rng.state;
+        rng.state = old_state.wrapping_mul(6364136223846793005) + (rng.inc | 1);
+        let xor_shifted = ((old_state >> 18) ^ old_state) >> 27;
+        let rot = old_state >> 59;
+        return ((xor_shifted >> rot) | (xor_shifted << (rot.wrapping_neg() & 15))) as u16
     }
 }
 
@@ -37,6 +56,15 @@ impl Random for u32
         unsafe { _rdrand32_step(&mut n) };
         return n
     }
+
+    fn pcg(mut rng: PCG) -> u32
+    {
+        let old_state = rng.state;
+        rng.state = old_state.wrapping_mul(6364136223846793005) + (rng.inc | 1);
+        let xor_shifted = ((old_state >> 18) ^ old_state) >> 27;
+        let rot = old_state >> 59;
+        return ((xor_shifted >> rot) | (xor_shifted << (rot.wrapping_neg() & 31))) as u32
+    }
 }
 
 impl Random for u64
@@ -46,6 +74,15 @@ impl Random for u64
         let mut n = 0;
         unsafe { _rdrand64_step(&mut n) };
         return n
+    }
+
+    fn pcg(mut rng: PCG) -> u64
+    {
+        let old_state = rng.state;
+        rng.state = old_state.wrapping_mul(6364136223846793005) + (rng.inc | 1);
+        let xor_shifted = ((old_state >> 18) ^ old_state) >> 27;
+        let rot = old_state >> 59;
+        return (xor_shifted >> rot) | (xor_shifted << (rot.wrapping_neg() & 63))
     }
 }
 
@@ -72,6 +109,8 @@ fn create_new_mutex<T>(data: T) -> Arc<Mutex<T>>
 /// corresponds to the amount of logical cores in your machine.
 fn eval_threading<T: 'static + Random + Send>(size: usize)
 {
+    let rng: PCG = PCG { state: SEED, inc: SEED };
+
     for threads in 1 ..= get_logical_cores()
     {
         let vec_t = create_new_mutex::<Vec<T>>(Vec::with_capacity(size));
@@ -87,7 +126,7 @@ fn eval_threading<T: 'static + Random + Send>(size: usize)
 
                 for _ in 0 .. chunk_size
                 {
-                    tmp.push(T::random());
+                    tmp.push(T::pcg(rng));
                 }
 
                 for _ in 0 .. chunk_size
@@ -110,5 +149,19 @@ fn eval_threading<T: 'static + Random + Send>(size: usize)
 
 fn main()
 {
-    eval_threading::<u64>(1 << 16)
+    let mut t_buf = String::new();
+    let mut n_buf = String::new();
+    println!("Enter type (u16 | u32 | u64):\n");
+    std::io::stdin().read_line(&mut t_buf).unwrap();
+    println!("Enter size (1 << #):\n");
+    std::io::stdin().read_line(&mut n_buf).unwrap();
+
+    match t_buf.as_str().trim()
+    {
+        "u16" => { eval_threading::<u16>(1 << n_buf.trim().parse::<usize>().unwrap()) }
+        "u32" => { eval_threading::<u32>(1 << n_buf.trim().parse::<usize>().unwrap()) }
+        "u64" => { eval_threading::<u64>(1 << n_buf.trim().parse::<usize>().unwrap()) }
+        _ => panic!("That type is not valid!")
+    }
+    
 }
