@@ -20,39 +20,56 @@ pub fn get_logical_cores() -> usize
     return ((cpuid & 0xFF0000) >> 16) as usize
 }
 
-pub fn threaded_mpsc(threads: usize, total_size: usize) -> Vec<u64>
+pub fn threaded_mpsc(threads: usize, total_size: usize) -> Vec<Vec<u64>>
 {
-    let (tx, rx) = mpsc::channel();
-    let job_size = total_size / threads;
-    let mut workers = Vec::with_capacity(threads);
-    
-    for _ in 0 .. threads
+    if threads == 0
     {
-        let _tx = tx.clone();
-        let worker = thread::spawn(
-            move ||
-            {
-                for i in 0 .. job_size
+        let mut rd_vec = Vec::with_capacity(total_size);
+
+        for _ in 0 .. total_size
+        {
+            rd_vec.push(hw_rand_u64());
+        }
+
+        return vec![rd_vec]
+    }
+    else
+    {
+        let mut rd_vec = Vec::with_capacity(total_size);
+        let mut workers = Vec::with_capacity(threads);
+        let job_size = total_size / threads;
+        let (tx, rx) = mpsc::channel();
+
+        for _ in 0 .. threads
+        {
+            let tx = tx.clone();
+            let worker = thread::spawn(
+                move ||
                 {
-                    _tx.send(hw_rand_u64()).unwrap();
+                    let mut tmp = Vec::with_capacity(job_size);
+
+                    for _ in 0 .. job_size
+                    {
+                        tmp.push(hw_rand_u64());
+                    }
+
+                    tx.send(tmp).unwrap();
                 }
-            }
-        );
+            );
+            
+            workers.push(worker);
+        }
         
-        workers.push(worker);
-    }
-    
-    for worker in workers
-    {
-        worker.join().unwrap();
-    }
-    
-    let mut rd_vec = Vec::with_capacity(total_size);
+        for worker in workers
+        {
+            worker.join().unwrap();
+        }
 
-    while let Ok(recv) = rx.try_recv()
-    {
-        rd_vec.push(recv);
-    }
+        while let Ok(recv) = rx.try_recv()
+        {
+            rd_vec.push(recv);
+        }
 
-    return rd_vec
+        return rd_vec
+    }
 }
